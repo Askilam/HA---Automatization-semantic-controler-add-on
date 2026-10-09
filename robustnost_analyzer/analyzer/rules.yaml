@@ -1,0 +1,149 @@
+rules:
+  - name: "metadata_ignored"
+    query: "$..metadata"
+    condition: "exists"
+    error: "Semantic error: Metadata field is ignored at runtime.\n\t\t\tRemove it or use 'variables:'"
+
+  #D1
+  - name: "wrong_state_case_trigger"
+    query: "$.triggers[?(@.trigger_type=='state')].to_"
+    condition: "contains"
+    substring: "On|Off|Open|Close|True|False"
+    error: "Semantic error: State values should be lowercase ('on' not 'On').\n\t\t\tCheck HA Developer Tools for valid states."
+
+  - name: "wrong_state_case_codnition"
+    query: "$.conditions[?(@.condition_type=='state')].state"
+    condition: "contains"
+    substring: "On|Off|Open|Close|True|False"
+    error: "Semantic error: State values should be lowercase ('on' not 'On').\n\t\t\tCheck HA Developer Tools for valid states."
+
+  - name: "wrong_state_case_action"
+    query: "$.actions[?(@.action_type=='service')].data.state"
+    condition: "contains"
+    substring: "On|Off|Open|Close|True|False"
+    error: "Semantic error: State values should be lowercase ('on' not 'On').\n\t\t\tCheck HA Developer Tools for valid states."
+  #D2
+  - name: "wrong_trigger_type"
+    query: "$.triggers[?(@.trigger_type=='device')].params.for"
+    condition: "contains"
+    substring: "{{"
+    error: "Semantic error: Templates ('{{ ... }}' in 'for')\n\t\t\tnot supported in 'device' trigger.\n\t\t\tSwitch to a 'state' or 'numeric_state' trigger type."
+  #D3
+  - name: "wrong_data_retrieval_no_states"
+    query: "$..value_template | $..wait_template | $.actions[?(@.action_type=='service')].data.*"
+    condition: "matches_regex"
+    regex: "(?<!states\\(['\"])\\b\\w+\\.\\w+\\b"
+    error: "Semantic error: Direct entity references ('sensor.my_sensor')\n\t\t\tin templates are invalid. Use 'states(\"entity_id\")'\n\t\t\tto access states."
+  #D5
+  - name: "wrong_sun_predicates_condition"
+    query: "$..conditions[?(@.condition_type=='sun' & @.before=='sunrise' & @.after=='sunset')]"
+    condition: exists
+    error: "Semantic error: Invalid combination of 'before: sunrise'\n\t\t\tand 'after: sunset' in a single sun condition"
+
+  - name: "wrong_time_predicates_condition_v1"
+    query: "$..conditions[?(@.condition_type=='time' & @.before=='sunrise' & @.after=='sunset')]"
+    condition: exists
+    error: "Semantic error: Time condition with 'before: sunrise/sunset'\n\t\t\tor 'after: sunset/sunrise' is invalid, use time\n\t\t\tin format HH:MM:SS"
+
+  - name: "wrong_time_predicates_condition_v2"
+    query: "$..conditions[?(@.condition_type=='time' & @.before=='sunset' & @.after=='sunrise')]"
+    condition: exists
+    error: "Semantic error: Time condition with 'before: sunrise/sunset'\n\t\t\tor 'after: sunset/sunrise' is invalid, use time\n\t\t\tin format HH:MM:SS"
+
+  - name: "sun_pred_action_cond"
+    query: "$.actions[?(@.action_type=='if')].if_[?(@.condition_type=='sun' & @.before=='sunrise' & @.after=='sunset')]"
+    condition: exists
+    error: "Semantic error: Invalid combination of 'before: sunrise'\n\t\t\tand 'after: sunset' in a single sun condition in action"
+
+  - name: "repeat_action_while_until"
+    query: "$.actions[?(@.action_type=='repeat')]"
+    condition: exists
+    error: "Semantic error: Invalid combination of 'before: sunrise'\n\t\t\tand 'after: sunset' in a single sun condition in action"
+
+  - name: "wrong_sun_predicates_trigger"
+    query: "$.triggers[?(@.params.trigger=='sun' & @.params.offset != null)].params"
+    condition: offset
+    error: "Semantic error: Invalid 'offset' value in a single sun trigger"
+
+  - name: "wrong_time_predicates_trigger"
+    query: "$.triggers[?(@.params.trigger=='time' & @.params.offset != null)].params"
+    condition: offset
+    error: "Semantic error: Invalid 'offset' value in a single time trigger"
+
+  - name: "wrong_numeric_state_trigger_range"
+    query: "$.triggers[?(@.params.trigger=='numeric_state' & @.params.above != null & @.params.below != null)].params"
+    condition: "exists"
+    error: "Semantic error: Invalid range of numeric_state trigger 'above'\n\t\t\tcannot be greater than 'below'"
+
+  - name: "wrong_numeric_state_condition_range"
+    query: "$.conditions[?(@.condition_type=='numeric_state' & @.above != null & @.below != null)]"
+    condition: "exists"
+    error: "Semantic error: Invalid range of numeric_state condition 'above'\n\t\t\tcannot be greater than 'below'"
+
+  - name: "zone_trigg_conf_events"
+    query: "$.triggers[?(@.trigger_type=='zone')]"
+    condition: "exists"
+    error: "Semantic error: Conflicting event in zone trigger (enter & leave)"
+  #D6
+  - name: "wrong_value_template_placement"
+    query: "$..conditions[?(@.condition_type!='template' & @.condition_type!='numeric_state' & @.extra_params.*)] | $..actions[*].if_[?(@.condition_type!='template' & @.condition_type!='numeric_state' & @.extra_params.*)]"
+    condition: "exists"
+    error: "Semantic error: unsupported attribute used in either 'if' or classic condition"
+
+  - name: "wrong_value_while_placement"
+    query: $..actions[*].while_[?(@.condition_type!='template' & @.condition_type!='numeric_state' & @.extra_params.*)]
+    condition: "exists"
+    error: "Semantic error: unsupported attribute used in 'while' condition"
+
+  - name: "wrong_value_until_placement"
+    query: $..actions[*].until[?(@.condition_type!='template' & @.condition_type!='numeric_state' & @.extra_params.*)]
+    condition: "exists"
+    error: "Semantic error: unsupported attribute used in 'until' condition"
+  #D7 recomendation
+  - name: "warning_state_check_missing"
+    query: "$..actions[?(@.action_type=='service')]"
+    condition: "exists"
+    error: "Recommendation: Check actual state of 'service'/'action'\n\t\t\tto prevent redundant executions"
+  #D8 
+  - name: "wait_for_trigger_params"
+    query: "$.actions[?(@.action_type=='wait_for_trigger')].wait_for_trigger[?(@.params.to)].params"
+    condition: exists
+    error: "Semantic error: 'wait_for_trigger' may not occur,\n\t\t\tcannot have 'to' without 'from', 'wait_template' use is suggested"
+
+  - name: "wait_for_trigger"
+    query: "$.actions[?(@.action_type=='wait_for_trigger')].wait_for_trigger"
+    condition: exists
+    error: "Semantic error: 'wait_for_trigger' same as main trigger,\n\t\t\tmight cause deadlock"
+  #D11
+  - name: "wrong_atribute__in_service_action"
+    query: "$..actions[?(@.action_type=='service' & @.extra_params.*)]"
+    condition: "exists"
+    error: "Semantic error: unsupported attribute used in 'service' action"
+  #D13
+  - name: "state_used_in_action"
+    query: "$..*[?(@.action_type=='service' & @.data.state)]"
+    condition: "exists"
+    error: "Semantic error: Cannot use 'state' in actions,\n\t\t\tusing 'service' is recommended"
+  #D15
+  - name: "wrong_wait_template_usage_D1"
+    query: "$..actions[?(@.action_type=='wait_template')].wait_template"
+    condition: "contains"
+    substring: "On|Off|Open|Close|True|False"
+    error: "Semantic error: State values should be lowercase ('on' not 'On').\n\t\t\tCheck HA Developer Tools for valid states."
+
+  - name: "warning_wrong_wait_template_usage_D15"
+    query: "$..actions[?(@.action_type=='wait_template' & @.timeout=='None')].wait_template"
+    condition: "contains"
+    substring: "on|off|open|close|true|false|<|>|<=|>=|=="
+    error: "Recommendation: 'wait_template' only re-evaluates when one of the\n\t\t\treferenced entities changes state. If the condition\n\t\t\tbecomes true BEFORE entering 'wait_template' and no\n\t\t\tentity changes afterward, it may wait forever.
+            \n\n\t\t\t'wait_template' without a 'timeout' can wait\n\t\t\tindefinitely if the condition is never met again.\n\t\t\tAdding 'timeout: HH:MM:SS' and\n\t\t\t'continue_on_timeout: true/false' recommended."
+  #D16
+  - name: "missing_action"
+    query: "$.triggers[?(@.trigger_type=='empty')]"
+    condition: "exists"
+    error: "Semantic error: No 'triggers' defined"
+    
+  - name: "missing_trigger"
+    query: "$.actions[?(@.action_type=='empty')]"
+    condition: "exists"
+    error: "Semantic error: No 'actions' defined"

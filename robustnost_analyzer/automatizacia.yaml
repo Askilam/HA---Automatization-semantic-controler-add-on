@@ -1,0 +1,8 @@
+- alias: wrong_state_case
+  trigger:
+    - platform: state
+      entity_id: input_boolean.ecobee_fan_on_off
+      from: 'off'
+      to: 'On'
+    - platform: state
+  action: []
